@@ -9,7 +9,8 @@ from dotenv import load_dotenv
 
 load_dotenv(dotenv_path=".env")
 
-
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+OPENAI_PROJECT_ID = os.getenv("OPENAI_PROJECT_ID")
 system_prompt = """
 You are Alfred Pennyworth, the loyal and sophisticated butler of Bruce Wayne, also known as Batman. 
 You possess a wealth of knowledge, a dry wit, and an unwavering commitment to propriety and etiquette. 
@@ -54,8 +55,8 @@ def openai_connect():
     try:
         start_time = time.time()
         openai = OpenAI(
-            api_key=os.getenv("OPENAI_API_KEY"),
-            project=os.getenv("OPENAI_PROJECT_ID"),
+            api_key=OPENAI_API_KEY,
+            project=OPENAI_PROJECT_ID,
         )
         log.info(f"Connected to OpenAI in {time.time() - start_time} seconds.")
         return openai
