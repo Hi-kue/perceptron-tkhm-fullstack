@@ -6,6 +6,7 @@ from config.log_config import logger as log
 from constants import OPENAI_API_KEY
 
 # langchain 🦜⛓️
+from langsmith import Client
 from langchain_openai import ChatOpenAI
 from langchain.agents import initialize_agent, AgentType
 from langchain_core.runnables.history import RunnableWithMessageHistory
@@ -61,28 +62,31 @@ alfred_template = PromptTemplate(
     """
 )
 
+weather_function = [
+    {
+        "name": "get_location_weather",
+        "description": "Get the weather for a location using OpenWeatherMAp API through a function call.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "location": {
+                    "type": "string",
+                    "description": "The users location to get current weather for."
+                },
+                "required": ["location"],
+                "additionalProperties": False
+            }
+        }
+    }
+]
+
+client = Client()
+
 try:
     model = ChatOpenAI(
         openai_api_key=OPENAI_API_KEY,
         frequency_penalty=0.0
     )
-    tool = [
-        {
-            "name": "get_location_weather",
-            "description": "Get the weather for a location using OpenWeatherMAp API through a function call.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "location": {
-                        "type": "string",
-                        "description": "The users location to get current weather for."
-                    },
-                    "required": ["location"],
-                    "additionalProperties": False
-                }
-            }
-        }
-    ]
 
 except Exception as e:
     log.info(f"Error occurred while initializing: {e} ")
@@ -90,6 +94,7 @@ except Exception as e:
 store = {}
 
 
+# NOTE: This is the function we will use for the function call in the agent.
 def __request_weather(city_id: int) -> dict:
     try:
         params = {
@@ -130,24 +135,47 @@ def get_session_history(session_id: str) -> BaseChatMessageHistory:
     return store[session_id]
 
 
-def response(session_id: str, message: str) -> str:
-    pass
+def alfred_response(session_id: str = None, message: str = None) -> str:
+    session_history = get_session_history(
+        session_id=session_id
+    )
 
-
-def weather_response(session_id: str = None, message: str = None) -> str:
-    if session_id is None or "":
-        raise ValueError("Message content is either None or empty.")
-
-    if message is None or "":
-        raise ValueError("Message content is either None or empty.")
-
-    session_history = get_session_history(session_id=session_id)
-
-    messages = [
-        SystemMessage(content=alfred_template.template),
-        *session_history,
-        HumanMessage(content=message)
+    tools = [
+        Tool(
+            name="Get Weather Data",
+            func=__request_weather,
+            description="Get the weather for a location using OpenWeatherMap API"
+        )
     ]
+
+    agent = initialize_agent(
+        tools=tools,
+        model=model,
+        agent=AgentType.CHAT_CONVERSATIONAL_REACT_DESCRIPTION,
+        verbose=True
+    )
+
+    agent_with_history = RunnableWithMessageHistory(
+        agent=agent,
+        message=session_history,
+        input_messages_key="input",
+        history_messages_key="chat_history"
+    )
+
+    result = agent_with_history.invoke(
+        {
+            "input": message,
+            "chat_history": session_history.messages
+        },
+        config={"configurable": {"session_id": session_id}}
+    )
+
+    session_history.add_user_message(message)
+    session_history.add_ai_message(result['output'])
+
+    return result['output']
+
+
 
 
 

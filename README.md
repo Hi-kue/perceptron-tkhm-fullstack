@@ -95,12 +95,14 @@ py main.py
 ```
 
 ## Technology Stack
-
 - Python
 - LangChain
 - OpenAI GPT
 - DuckDuckGo Search API (For the `Weather Data`)
 - Fly.io (For Deployment)
+
+## Future Considerations
+- [Tavily](https://docs.tavily.com/) (Engine Optimizations for LLMs)
 
 ## License
 
