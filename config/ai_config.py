@@ -118,7 +118,7 @@ def send_request(user_content: str, wcs_id: int = None) -> str | None:
             model=constants.OPENAI_API_MODEL,
             messages=messages,
             tools=tool,
-            tool_choice="none"
+            tool_choice="auto"
         )
 
         log.info(f"Response: {response}")
