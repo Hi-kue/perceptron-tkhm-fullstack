@@ -1,7 +1,9 @@
 python-dotenv
 langchain
 langchain-community
+langchain-openai
 openai
 pinecone-client
 rich
 requests
+fuzzywuzzy
