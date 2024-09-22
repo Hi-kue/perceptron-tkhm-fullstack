@@ -1,15 +1,16 @@
 # baselib
-import os
 import sys
 import time
+import json
+from typing import Any
+
 import requests
 
 import constants
 from config.log_config import logger as log
 from openai import OpenAI, OpenAIError, APIConnectionError
 
-
-# NOTE: Function Call for Weather API\
+# NOTE: Function Call for Weather API
 weather_funcdef = [
     {
         "name": "get_location_weather",
@@ -47,7 +48,7 @@ def openai_connect():
         sys.exit(1)
 
 
-def make_api_request(city_id: int) -> dict:
+def make_api_request(city_id: int) -> str | dict[Any, Any]:
     try:
         params = {
             "id": city_id,
@@ -74,7 +75,7 @@ def make_api_request(city_id: int) -> dict:
                     }
                 },
             }
-            return weather_fmt
+            return json.dumps(weather_fmt, indent=4)
 
     except Exception as e:
         log.error(f"Error occurred while requesting weather: {e}")
@@ -85,7 +86,7 @@ def send_request(user_content: str, wcs_id: int = None) -> str | None:
     tools = [
         {
             "type": "function",
-            "function":  {
+            "function": {
                 "name": "make_api_request",
                 "description": "Get the weather for a location using OpenWeatherMap API.",
                 "parameters": {
@@ -94,48 +95,75 @@ def send_request(user_content: str, wcs_id: int = None) -> str | None:
                         "city_id": {
                             "type": "integer",
                             "description": "The city id to get the weather for."
-                        },
-                        "required": ["city_id"],
-                        "additionalProperties": False
+                        }
                     }
-                }
+                },
+                "required": ["city_id"]
             }
         }
     ]
+    response_unpacked = []
 
     try:
         start_time = time.time()
         openai = openai_connect()
 
-        if wcs_id is not None and "weather" in user_content.lower():  # TODO: Fix This.
-            response = openai.chat.completions.create(
-                model=constants.OPENAI_API_MODEL,
-                messages=[
-                    {"role": "system", "content": constants.ALFRED_SYSTEM_PROMPT},
-                    {"role": "function", "content": weather_funcdef},
-                    {"role": "user", "content": user_content}
-                ],
-                tools=tools,
-                functions=weather_funcdef,
-                function_call="auto"
-            )
-        else:
-            response = openai.chat.completions.create(
-                model=constants.OPENAI_API_MODEL,
-                messages=[
-                    {"role": "system", "content": constants.ALFRED_SYSTEM_PROMPT},
-                    {"role": "user", "content": user_content}
-                ],
-            )
+        messages = [
+            {"role": "system", "content": constants.ALFRED_SYSTEM_PROMPT},
+            {"role": "user", "content": user_content}
+        ]
 
-        log.info(f"Response: {response}")
+        response = openai.chat.completions.create(
+            model=constants.OPENAI_API_MODEL,
+            messages=messages,
+            tools=tools,
+            tool_choice="none"
+        )
+
+        response_message = response.choices[0].message
+        tool_calls = response_message.tool_calls
+
+        if tool_calls:
+            messages.append(response_message)
+
+            for tc in tool_calls:
+                log.info(f"Function: {tc.function.name}")
+                log.info(f"Params/Arguments: {tc.function.arguments}")
+
+                function_name = tc.function.name
+                function_to_call = globals().get(function_name)
+
+                function_args = json.loads(tc.function.arguments)
+                wcs_id = function_args.get("city_id")
+
+                if wcs_id:
+                    function_response = function_to_call(wcs_id)
+                    log.info(f"Function Response: {function_response}")
+
+                    messages.append({
+                        "tool_call_id": tc.id,
+                        "role": "tool",
+                        "name": function_name,
+                        "content": function_response
+                    })
+
+                else:
+                    log.info("city_id not found in function arguments.")
+
+        final_response = openai.chat.completions.create(
+            model=constants.OPENAI_API_MODEL,
+            messages=messages,
+            stream=True
+        )
+
+        log.info(f"Response: {final_response}")
         log.info(f"Response time: {time.time() - start_time} seconds.")
 
-        if response.choices:
-            return response.choices[0].message.content
+        for chunk in final_response:
+            if chunk.choices[0].delta.content not in [None, ""]:
+                response_unpacked.append(chunk.choices[0].delta.content)
 
-        else:
-            return None
+        return "".join(response_unpacked)
 
     except Exception as e:
         log.info(f"Error found from response sent: {e}")
