@@ -2,7 +2,6 @@
 import sys
 
 from config.ai_config import send_request
-from filter.finder import load_city_json, find_city_id_wc, find_city_id_wcc
 from filter.typing import typrint_color
 
 from rich.console import Console

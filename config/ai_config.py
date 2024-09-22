@@ -9,6 +9,7 @@ import requests
 import constants
 from config.log_config import logger as log
 from openai import OpenAI, OpenAIError, APIConnectionError
+from openai.types.chat.chat_completion_tool_param import ChatCompletionToolParam
 
 # NOTE: Function Call for Weather API
 weather_funcdef = [
@@ -83,10 +84,10 @@ def make_api_request(city_id: int) -> str | dict[Any, Any]:
 
 
 def send_request(user_content: str, wcs_id: int = None) -> str | None:
-    tools = [
-        {
-            "type": "function",
-            "function": {
+    tool = [
+        ChatCompletionToolParam(
+            type="function",
+            function={
                 "name": "make_api_request",
                 "description": "Get the weather for a location using OpenWeatherMap API.",
                 "parameters": {
@@ -96,11 +97,11 @@ def send_request(user_content: str, wcs_id: int = None) -> str | None:
                             "type": "integer",
                             "description": "The city id to get the weather for."
                         }
-                    }
-                },
-                "required": ["city_id"]
+                    },
+                    "required": ["city_id"]
+                }
             }
-        }
+        )
     ]
     response_unpacked = []
 
@@ -116,9 +117,11 @@ def send_request(user_content: str, wcs_id: int = None) -> str | None:
         response = openai.chat.completions.create(
             model=constants.OPENAI_API_MODEL,
             messages=messages,
-            tools=tools,
+            tools=tool,
             tool_choice="none"
         )
+
+        log.info(f"Response: {response}")
 
         response_message = response.choices[0].message
         tool_calls = response_message.tool_calls
