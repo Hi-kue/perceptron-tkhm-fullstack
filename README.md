@@ -1,6 +1,6 @@
 <div align="left">
 <a href="/url">
-    <img src="./assets/alfai-logo.svg" alt="Alfred AI Logo" height="150">
+    <img src="./rdocs/alfai-logo.png" alt="Alfred AI Logo" height="100">
 </a>
 
 <h3 align="left">
