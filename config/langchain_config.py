@@ -105,3 +105,5 @@ def alfred_response(session_id: str = None, message: str = None) -> str:
     session_history.add_ai_message(result['output'])
 
     return result['output']
+
+# NOTE: future implementations will require langchain implementation but for now, its just normal OpenAI.

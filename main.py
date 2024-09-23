@@ -2,7 +2,7 @@
 import sys
 
 from config.ai_config import send_request
-from filter.typing import typrint_color
+from utils.typing import typrint_color
 
 from rich.console import Console
 from rich.prompt import Prompt

@@ -5,7 +5,7 @@ from fuzzywuzzy import fuzz
 from config.log_config import logger as log
 
 
-def load_city_json(file_path: str):
+def load_city_json(file_path: str) -> dict:
     log.info(f"Loading JSON file from path: {file_path}")
     with open(file_path, "r", encoding="utf-8") as file:
         return json.load(file)
